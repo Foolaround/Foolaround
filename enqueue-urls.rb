@@ -11,9 +11,9 @@ bunch_of_urls = [
 
 bunny = Bunny.new
 bunny.start
-queue = bunny.queue('fetch.url')
+queue = bunny.queue('create')
 exchange = bunny.exchange ""
 
 bunch_of_urls.each do |url|
-  exchange.publish url, :key => 'fetch.url'
+  exchange.publish url, :key => 'create'
 end
