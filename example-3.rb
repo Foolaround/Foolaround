@@ -26,6 +26,15 @@ java_import 'akka.routing.Routing'
 java_import 'akka.routing.UntypedLoadBalancer'
 java_import java.util.concurrent.CountDownLatch
 
+class Url < Neo4j::Rails::Model
+  attr_accessor :url
+  url_regex = /^http:\/\//
+  has_n(:links).to(Url)
+  property :url
+  index :url
+
+  validates :url, :format => {:with => url_regex}
+end
 
 def actorOf(&code)
   Actors.actorOf(Class.new do
@@ -40,7 +49,7 @@ class ActorN < Akka::UntypedActor
   def self.create(*args)
       new *args
     end
-  
+
   def onReceive(msg)
     data = String.from_java_bytes(msg.payload)
     puts "Saving " + data
@@ -58,20 +67,35 @@ class ActorR < Akka::UntypedActor
       actor.start
     end
   end
-  
+
   def onReceive(msg)
     data = String.from_java_bytes(msg.payload)
-    # Do something
-    # send to save - Actor
-    puts "Sending " + data
-    saver.sendOneWay data
+    puts "Received " + data
+    Neo4j::Transaction.run do
+      google = Url.find_by_url("http://google.de") or raise "google not found"
+      new_url = Url.new(:url => data)
+      new_url.save
+      google.links.build :url=>data
+   #   raise " ====> FOUND: " + google.inspect
+    #  node.outgoing(:links_to)  << Neo4j::Node.find(:url => to) unless to.nil?
+      newgoogle = Url.find_by_url("http://google.de")
+      newgoogle.links.each {|n| puts "  => " + n.url}
+    end
+    puts "  == found google node " + google.url + " =="
+    puts "  == created node ==" + node.url
+    sleep 2
   end
 end
 
+Neo4j::Transaction.run do
+  $google = Url.create! :url => "http://google.de"
+end
+
+sleep 2
+puts ">> Starting <<"
+
 connection = Akka::AMQP.newConnection(Akka::AMQP::ConnectionParameters.new)
-
-
-10.times do
+1.times do
   params = Akka::AMQP::ConsumerParameters.new(
     "create", ActorR.spawn, "create", Akka::AMQP::ActiveDeclaration.new(false, false), true, Akka::AMQP::ChannelParameters.new
   )

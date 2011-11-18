@@ -3,7 +3,6 @@ module Akka
   include_package 'akka.actor'
 end
 
-
 java_import 'akka.actor.Actors'
 java_import 'akka.actor.ActorRef'
 java_import 'akka.actor.UntypedActor'
